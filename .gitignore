@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Build output (regenerate with ./build.sh)
+Catbin.app/
+
+# Logs / temp
+*.log
+
+# OMC internal state
+.omc/
