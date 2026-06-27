@@ -28,21 +28,61 @@ func loadImage(_ name: String, fallbackEmoji: String) -> NSImage {
     return makeEmojiImage(fallbackEmoji)
 }
 
+// MARK: - Cat type
+
+enum CatType: String, CaseIterable {
+    case black, white
+
+    var displayName: String {
+        switch self {
+        case .black: return "검은 고양이"
+        case .white: return "흰 고양이"
+        }
+    }
+
+    var fallbackEmoji: (closed: String, open: String) {
+        switch self {
+        case .black: return ("🐱", "😮")
+        case .white: return ("🐈", "😮")
+        }
+    }
+}
+
 // MARK: - Cat dock tile
 
 final class CatTile {
     private let dockTile = NSApp.dockTile
     private let imageView = NSImageView(frame: NSRect(x: 0, y: 0, width: 128, height: 128))
 
-    private let closedImage: NSImage   // mouth closed (chewing)
-    private let openImage: NSImage     // mouth open (resting state)
+    private var closedImage: NSImage   // mouth closed (chewing)
+    private var openImage: NSImage     // mouth open (resting state)
 
     /// How long the mouth stays shut while "swallowing", in seconds.
     private let chewDuration = 0.30
 
+    private static let defaultsKey = "catType"
+    private(set) var catType: CatType
+
     init() {
-        self.closedImage = loadImage("idle", fallbackEmoji: "🐱")
-        self.openImage = loadImage("open", fallbackEmoji: "😮")
+        let saved = UserDefaults.standard.string(forKey: CatTile.defaultsKey)
+            .flatMap(CatType.init(rawValue:)) ?? .black
+        self.catType = saved
+        (self.closedImage, self.openImage) = CatTile.images(for: saved)
+    }
+
+    private static func images(for type: CatType) -> (closed: NSImage, open: NSImage) {
+        let closed = loadImage("\(type.rawValue)_idle", fallbackEmoji: type.fallbackEmoji.closed)
+        let open = loadImage("\(type.rawValue)_open", fallbackEmoji: type.fallbackEmoji.open)
+        return (closed, open)
+    }
+
+    /// Switch the cat breed, persist the choice, and reflect it in the Dock immediately.
+    func setCatType(_ type: CatType) {
+        guard type != catType else { return }
+        catType = type
+        UserDefaults.standard.set(type.rawValue, forKey: CatTile.defaultsKey)
+        (closedImage, openImage) = CatTile.images(for: type)
+        show(openImage)            // resting state = mouth open
     }
 
     func setup() {
@@ -109,6 +149,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                        hasVisibleWindows flag: Bool) -> Bool {
         cat.chomp()
         return true
+    }
+
+    // Right-click on the Dock icon → choose the cat breed.
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+        let header = NSMenuItem(title: "고양이 종류", action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
+        for type in CatType.allCases {
+            let item = NSMenuItem(title: type.displayName,
+                                  action: #selector(chooseCat(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = type.rawValue
+            item.state = (cat.catType == type) ? .on : .off
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    @objc private func chooseCat(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let type = CatType(rawValue: raw) else { return }
+        cat.setCatType(type)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

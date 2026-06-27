@@ -24,10 +24,10 @@ echo "==> Installing Info.plist"
 cp Info.plist "$CONTENTS/Info.plist"
 
 # Copy user-supplied art if present in ./art (optional).
+# Expected: <type>_idle.png / <type>_open.png  (e.g. black_idle.png, white_open.png)
 if [ -d art ]; then
     echo "==> Copying art from ./art"
-    [ -f art/idle.png ] && cp art/idle.png "$RES/idle.png" || true
-    [ -f art/open.png ] && cp art/open.png "$RES/open.png" || true
+    cp art/*.png "$RES/" 2>/dev/null || true
     [ -f art/AppIcon.icns ] && cp art/AppIcon.icns "$RES/AppIcon.icns" || true
 fi
 
